@@ -38,7 +38,8 @@ while getopts ":n" opt; do
 
     sudo /usr/bin/pip install fabric
 
-    git clone https://github.com/home-assistant/fabric-home-assistant.git
+    git clone https://github.com/dale3h/fabric-home-assistant.git
+    git checkout ubuntu
 
     ( cd /home/$me/fabric-home-assistant && fab deploy_novenv -H localhost 2>&1 | tee installation_report.txt )
     exit
@@ -76,7 +77,8 @@ fi
 
 sudo /usr/bin/pip install fabric
 
-git clone https://github.com/home-assistant/fabric-home-assistant.git
+git clone https://github.com/dale3h/fabric-home-assistant.git
+git checkout ubuntu
 
 
 ( cd /home/$me/fabric-home-assistant && fab deploy -H localhost 2>&1 | tee installation_report.txt )

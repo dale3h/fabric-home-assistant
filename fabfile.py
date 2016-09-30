@@ -9,13 +9,16 @@ from fabric.api import *
 import fabric.contrib.files
 import time
 import os
+import getpass
+import string
+import random
 
 
 env.hosts = ['localhost']
-env.user   = "pi"
-env.password = "raspberry"
 env.warn_only = True
-pi_hardware = os.uname()[4]
+
+mqtt_username = 'hass'
+mqtt_password = ''.join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(12))
 
 #######################
 ## Core server setup ##
@@ -61,16 +64,16 @@ def install_start():
     ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
     ,,,,,,,,,,,                                   ,,,,,,,,,,
     ,,,,,,,,,,,   Welcome to the Home Assistant   ,,,,,,,,,,
-    ,,,,,,,,,,, Raspberry Pi All-In-One Installer ,,,,,,,,,,
+    ,,,,,,,,,,,    Ubuntu All-In-One Installer    ,,,,,,,,,,
     ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
     """)
     print("* Warning *")
-    print("""The primary use of this installer is for a new, unconfigured Home Assistant deployment. 
+    print("""The primary use of this installer is for a new, unconfigured Home Assistant deployment.
           Running the installer command straight from the Getting Started guide found on Github, will overwrite any existing configs.
           Additional commands for upgrading should be run seperately. Please see the Github page for useage instructions""")
     time.sleep(10)
     print("Installer is starting...")
-    print("Your Raspberry Pi will reboot when the installer is complete.")
+    print("Your system will reboot when the installer is complete.")
     time.sleep(5)
 
 
@@ -109,26 +112,26 @@ def setup_users():
 
 def install_syscore():
     """ Download and install Host Dependencies. """
-    sudo("aptitude install -y python3")
-    sudo("aptitude install -y python3-pip")
-    sudo("aptitude install -y git")
-    sudo("aptitude install -y libssl-dev")
-    sudo("aptitude install -y cmake")
-    sudo("aptitude install -y libc-ares-dev")
-    sudo("aptitude install -y uuid-dev")
-    sudo("aptitude install -y daemon")
-    sudo("aptitude install -y curl")
-    sudo("aptitude install -y libgnutls28-dev")
-    sudo("aptitude install -y libgnutlsxx28")
-    sudo("aptitude install -y libgnutls-dev")
-    sudo("aptitude install -y nmap")
-    sudo("aptitude install -y net-tools")
-    sudo("aptitude install -y sudo")
-    sudo("aptitude install -y libglib2.0-dev")
-    sudo("aptitude install -y cython3")
-    sudo("aptitude install -y libudev-dev")
-    sudo("aptitude install -y python3-sphinx")
-    sudo("aptitude install -y python3-setuptools")
+    sudo("apt-get install -y python3")
+    sudo("apt-get install -y python3-pip")
+    sudo("apt-get install -y git")
+    sudo("apt-get install -y libssl-dev")
+    sudo("apt-get install -y cmake")
+    sudo("apt-get install -y libc-ares-dev")
+    sudo("apt-get install -y uuid-dev")
+    sudo("apt-get install -y daemon")
+    sudo("apt-get install -y curl")
+    sudo("apt-get install -y libgnutls28-dev")
+    sudo("apt-get install -y libgnutlsxx28")
+    sudo("apt-get install -y libgnutls-dev")
+    sudo("apt-get install -y nmap")
+    sudo("apt-get install -y net-tools")
+    sudo("apt-get install -y sudo")
+    sudo("apt-get install -y libglib2.0-dev")
+    sudo("apt-get install -y cython3")
+    sudo("apt-get install -y libudev-dev")
+    sudo("apt-get install -y python3-sphinx")
+    sudo("apt-get install -y python3-setuptools")
 
 def install_pycore():
     """ Download and install VirtualEnv """
@@ -165,8 +168,8 @@ mqtt:
   broker: 127.0.0.1
   port: 1883
   client_id: home-assistant-1
-  username: pi
-  password: raspberry
+  username: %s
+  password: %s
 """
     with cd("/etc/systemd/system/"):
         put("mosquitto.service", "mosquitto.service", use_sudo=True)
@@ -174,7 +177,7 @@ mqtt:
     with settings(sudo_user='hass'):
         sudo("/srv/hass/hass_venv/bin/hass --script ensure_config --config /home/hass/.homeassistant")
 
-    fabric.contrib.files.append("/home/hass/.homeassistant/configuration.yaml", hacfg, use_sudo=True)
+    fabric.contrib.files.append("/home/hass/.homeassistant/configuration.yaml", hacfg % (mqtt_username, mqtt_password), use_sudo=True)
     sudo("systemctl enable mosquitto.service")
     sudo("systemctl enable home-assistant_novenv.service")
     sudo("systemctl daemon-reload")
@@ -207,7 +210,7 @@ def setup_mosquitto():
                             sudo("touch pwfile")
                             sudo("chown mosquitto: pwfile")
                             sudo("chmod 0600 pwfile")
-                            sudo("sudo mosquitto_passwd -b pwfile pi raspberry")
+                            sudo("sudo mosquitto_passwd -b pwfile %s %s" % (mqtt_username, mqtt_password))
 
 def setup_homeassistant():
     """ Activate Virtualenv, Install Home-Assistant """
@@ -245,10 +248,7 @@ def setup_openzwave_controlpanel():
         with cd("open-zwave-control-panel"):
             put("Makefile", "Makefile", use_sudo=True)
             sudo("make")
-            if pi_hardware == "armv7l":
-                sudo("ln -sd /srv/hass/hass_venv/lib/python3.4/site-packages/libopenzwave-0.3.1-py3.4-linux-armv7l.egg/config")
-            else:
-                sudo("ln -sd /srv/hass/hass_venv/lib/python3.4/site-packages/libopenzwave-0.3.1-py3.4-linux-armv**6**l.egg/config")
+            sudo("ln -sd /srv/hass/hass_venv/lib/python3.**/site-packages/libopenzwave-0.3.1-py3.**-linux-**.egg/config")
         sudo("chown -R hass:hass /srv/hass/src/open-zwave-control-panel")
 
 def setup_services():
@@ -258,8 +258,8 @@ mqtt:
   broker: 127.0.0.1
   port: 1883
   client_id: home-assistant-1
-  username: pi
-  password: raspberry
+  username: %s
+  password: %s
 """
     with cd("/etc/systemd/system/"):
         put("mosquitto.service", "mosquitto.service", use_sudo=True)
@@ -267,7 +267,7 @@ mqtt:
     with settings(sudo_user='hass'):
         sudo("/srv/hass/hass_venv/bin/hass --script ensure_config --config /home/hass/.homeassistant")
 
-    fabric.contrib.files.append("/home/hass/.homeassistant/configuration.yaml", hacfg, use_sudo=True)
+    fabric.contrib.files.append("/home/hass/.homeassistant/configuration.yaml", hacfg % (mqtt_username, mqtt_password), use_sudo=True)
     sudo("systemctl enable mosquitto.service")
     sudo("systemctl enable home-assistant.service")
     sudo("systemctl daemon-reload")
@@ -306,7 +306,7 @@ def deploy():
 
     ## Activate venv, install Home-Assistant ##
     setup_homeassistant()
-    
+
     ## Make apps start at boot ##
     setup_services()
 
